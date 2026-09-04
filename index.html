@@ -5,7 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tutor Experto para Kaleb</title>
     <style>
-        /* Aquí irán los estilos CSS */
+        body {
+    font-family: sans-serif;
+    background-color: #f4f7f6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+.container {
+    width: 600px;
+    max-width: 95%;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+}
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-top: 0;
+}
+#chat-box {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+}
+.message {
+    margin-bottom: 10px;
+    padding: 10px 14px;
+    border-radius: 18px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+.user-message {
+    background-color: #007bff;
+    color: white;
+    align-self: flex-end;
+    margin-left: auto;
+    border-bottom-right-radius: 5px;
+}
+.assistant-message {
+    background-color: #e9ecef;
+    color: #333;
+    align-self: flex-start;
+    border-bottom-left-radius: 5px;
+}
+.input-area {
+    display: flex;
+    gap: 10px;
+}
+#user-input {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    outline: none;
+}
+#send-btn {
+    padding: 12px 25px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+#send-btn:hover {
+    background-color: #218838;
+}
+.loading {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+}
     </style>
 </head>
 <body>
@@ -20,7 +101,104 @@
         </div>
     </div>
     <script>
-        // Aquí irá el código JavaScript
+        // La URL de tu "mensajero" en Cloudflare Workers
+const WORKER_URL = 'https://tutor-kaleb.luisdanielramoscorona2010.workers.dev';
+
+const chatBox = document.getElementById('chat-box');
+const userInput = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
+
+// Función para mostrar un mensaje en el chat
+function addMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message');
+    messageDiv.classList.add(sender === 'user' ? 'user-message' : 'assistant-message');
+    // Convertir saltos de línea a <br> para mejor formato
+    messageDiv.innerHTML = text.replace(/\n/g, '<br>');
+    chatBox.appendChild(messageDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Función para mostrar un indicador de "cargando..."
+function showLoading() {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loading';
+    loadingDiv.classList.add('message', 'assistant-message', 'loading');
+    loadingDiv.textContent = 'El tutor está pensando...';
+    chatBox.appendChild(loadingDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function hideLoading() {
+    const loadingDiv = document.getElementById('loading');
+    if (loadingDiv) {
+        loadingDiv.remove();
+    }
+}
+
+// Función para enviar la pregunta al "mensajero"
+async function sendMessage() {
+    const message = userInput.value.trim();
+    if (!message) return;
+
+    // Mostrar el mensaje del usuario
+    addMessage(message, 'user');
+    userInput.value = '';
+    userInput.disabled = true;
+    sendBtn.disabled = true;
+
+    // Mostrar indicador de carga
+    showLoading();
+
+    try {
+        // Hablar con nuestro "mensajero" (Cloudflare Worker)
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: message })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        hideLoading();
+
+        if (data.error) {
+            addMessage('❌ Hubo un error: ' + data.error, 'assistant');
+        } else {
+            // Mostrar la respuesta del tutor
+            addMessage(data.reply, 'assistant');
+        }
+
+    } catch (error) {
+        hideLoading();
+        addMessage('❌ Lo siento, no pude conectar con el tutor. Inténtalo de nuevo.', 'assistant');
+        console.error('Error:', error);
+    } finally {
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+    }
+}
+
+// Escuchar el clic en el botón "Enviar"
+sendBtn.addEventListener('click', sendMessage);
+
+// Permitir enviar con la tecla "Enter"
+userInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// Mensaje de bienvenida
+window.onload = function() {
+    addMessage('👋 ¡Hola Kaleb! Soy tu tutor experto. ¿Qué asignatura o tema te gustaría trabajar hoy?', 'assistant');
+};
     </script>
 </body>
 </html>
